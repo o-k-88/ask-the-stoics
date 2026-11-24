@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ask the Stoics
 
-## Getting Started
+Ask Marcus Aurelius, Seneca, or Epictetus for Stoic counsel. Each philosopher answers in their own voice, powered by Google Gemini. Answers stream in as they're written, and you can ask follow-up questions.
 
-First, run the development server:
+## Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install dependencies:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+   ```bash
+   npm install
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Copy `.env.example` to `.env` and add your key:
 
-## Learn More
+   ```
+   GEMINI_API_KEY=your-key-here
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. Start the development server:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   npm run dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   Open [http://localhost:3000](http://localhost:3000).
 
-## Deploy on Vercel
+## How it works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `app/components/ask-form.tsx`: the chat UI. Each philosopher has a separate conversation.
+- `app/api/ask/route.ts`: sends the conversation to Gemini and streams the answer back.
+- `app/philosophers.ts`: the philosophers and the instructions that shape their voices. Add a new philosopher here.
+- `app/config.ts`: limits on question length and conversation history.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Limits and safeguards
+
+- Questions are limited to 1,000 characters.
+- Each IP address can ask 10 questions per minute. This limit is kept in server memory, so it resets on restart and isn't shared across multiple server instances.
+- If the main model (`gemini-3.5-flash-lite`) is overloaded, the app falls back to `gemini-3.1-flash-lite`.
+- Set a spending cap in Google AI Studio before deploying publicly.
+
+## Deploying
+
+Set `GEMINI_API_KEY` as an environment variable in your hosting provider (for example, Vercel's project settings). The `.env` file is not committed to git.
