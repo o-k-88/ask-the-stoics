@@ -23,6 +23,7 @@ body {
   background:
     radial-gradient(ellipse 80% 60% at 50% -10%, rgba(180, 83, 9, 0.12), transparent),
     var(--background);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

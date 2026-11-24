@@ -125,7 +125,7 @@ export default function AskForm() {
   }
 
   return (
-    <div className="w-full max-w-xl">
+    <div className="w-full">
       <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Choose a philosopher">
         {philosophers.map((p) => {
           const isSelected = p.id === philosopherId;
