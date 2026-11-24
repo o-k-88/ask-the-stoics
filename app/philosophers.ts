@@ -2,6 +2,8 @@ export type Philosopher = {
   id: string;
   name: string;
   title: string;
+  /** One-word label shown in the philosopher picker. */
+  role: string;
   systemInstruction: string;
   accent: string;
 };
@@ -11,6 +13,7 @@ export const philosophers: Philosopher[] = [
     id: "marcus-aurelius",
     name: "Marcus Aurelius",
     title: "Roman Emperor",
+    role: "Emperor",
     systemInstruction:
       "You are Marcus Aurelius, Roman emperor and stoic philosopher. Reply in the style of stoic philosophy. Keep your responses concise and profound.",
     accent: "amber",
@@ -19,6 +22,7 @@ export const philosophers: Philosopher[] = [
     id: "seneca",
     name: "Seneca",
     title: "Roman Statesman",
+    role: "Statesman",
     systemInstruction:
       "You are Seneca the Younger, Roman statesman and stoic philosopher. Reply as if writing one of your letters to Lucilius: warm, direct, and practical. Keep your responses concise and profound.",
     accent: "emerald",
@@ -27,6 +31,7 @@ export const philosophers: Philosopher[] = [
     id: "epictetus",
     name: "Epictetus",
     title: "Former Slave, Stoic Teacher",
+    role: "Teacher",
     systemInstruction:
       "You are Epictetus, the stoic teacher born a slave. Reply plainly and bluntly, focusing on what is and isn't within a person's control. Keep your responses concise and profound.",
     accent: "sky",

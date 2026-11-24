@@ -1,96 +1,108 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
 import AskAboutButton from "./ask-about-button";
 import { getPhilosopher } from "../philosophers";
-import { practices } from "../practices";
+import { practices, type Practice } from "../practices";
 
-// Full class names so Tailwind can find them.
-const tagClasses: Record<string, string> = {
-  amber: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
-  emerald: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
-  sky: "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300",
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-const dotClasses: Record<string, string> = {
-  amber: "bg-amber-600",
-  emerald: "bg-emerald-600",
-  sky: "bg-sky-600",
-};
+/** Days since 1970 in the visitor's own time zone, so the practice changes at their midnight. */
+function localDayNumber(): number {
+  const now = new Date();
+  return Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / DAY_MS);
+}
+
+const subscribe = () => () => {};
+
+/**
+ * Returns today's practice in the browser, or null during server rendering.
+ * The page is built ahead of time, so the server can't know the visitor's date.
+ */
+function useTodaysPractice(): Practice | null {
+  const day = useSyncExternalStore(subscribe, localDayNumber, () => null);
+  return day === null ? null : practices[day % practices.length];
+}
+
+function PracticeBody({ practice }: { practice: Practice }) {
+  const philosopher = getPhilosopher(practice.philosopherId);
+  return (
+    <>
+      <div className="space-y-2 leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <p>{practice.intro}</p>
+        {practice.items && (
+          <ul className="list-disc space-y-1 pl-5 marker:text-zinc-400">
+            {practice.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+        {practice.outro && <p>{practice.outro}</p>}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+        <span className="text-zinc-500">
+          — {philosopher.name}
+          {practice.source && <cite className="not-italic">, {practice.source}</cite>}
+        </span>
+        <AskAboutButton
+          philosopherId={philosopher.id}
+          philosopherName={philosopher.name}
+          question={practice.question}
+        />
+      </div>
+    </>
+  );
+}
 
 export default function DailyPractices() {
+  const today = useTodaysPractice();
+
   return (
-    <aside
-      aria-labelledby="practices-heading"
-      className="lg:sticky lg:top-8 lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto"
-    >
-      <h2
-        id="practices-heading"
-        className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50"
-      >
-        Daily Practices
-      </h2>
-      <p className="mt-1 mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-        Stoicism is meant to be lived, not just read. Try one or two of these each day.
-      </p>
+    <section aria-labelledby="practice-heading" className="mt-16">
+      <div className="min-h-64 rounded-2xl border border-zinc-200 bg-white/70 p-6 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <p className="text-xs font-semibold tracking-widest text-amber-700 uppercase dark:text-amber-500">
+          Today&apos;s practice
+        </p>
+        {today && (
+          <>
+            <h2
+              id="practice-heading"
+              className="mt-2 mb-3 text-xl font-semibold text-zinc-900 dark:text-zinc-50"
+            >
+              {today.name}
+            </h2>
+            <PracticeBody practice={today} />
+          </>
+        )}
+      </div>
 
-      <ul className="flex flex-col gap-2">
-        {practices.map((p, i) => {
-          const philosopher = getPhilosopher(p.philosopherId);
-          return (
-            <li key={p.id}>
-              <details
-                open={i === 0}
-                className="group rounded-xl border border-zinc-200 bg-white/70 shadow-sm transition open:bg-white dark:border-zinc-800 dark:bg-zinc-900/60 dark:open:bg-zinc-900"
-              >
-                <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl px-4 py-3 font-medium text-zinc-900 select-none hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-800/60 [&::-webkit-details-marker]:hidden">
-                  <span
-                    className={`size-2 shrink-0 rounded-full ${dotClasses[philosopher.accent]}`}
-                    aria-hidden="true"
-                  />
-                  <span className="flex-1 text-sm">{p.name}</span>
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </summary>
+      <details className="group mt-4">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-sm text-zinc-600 select-none hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 [&::-webkit-details-marker]:hidden">
+          <span className="group-open:hidden">See all {practices.length} practices</span>
+          <span className="hidden group-open:inline">Hide practices</span>
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            className="size-4 transition-transform group-open:rotate-180"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </summary>
 
-                <div className="px-4 pb-4 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                  <p>{p.intro}</p>
-                  {p.items && (
-                    <ul className="mt-2 list-disc space-y-1 pl-5 marker:text-zinc-400">
-                      {p.items.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {p.outro && <p className="mt-2">{p.outro}</p>}
-                  <p className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 font-medium ${tagClasses[philosopher.accent]}`}
-                    >
-                      {philosopher.name}
-                    </span>
-                    {p.source && (
-                      <cite className="text-zinc-500 not-italic">{p.source}</cite>
-                    )}
-                  </p>
-                  <AskAboutButton
-                    philosopherId={philosopher.id}
-                    philosopherName={philosopher.name}
-                    question={p.question}
-                  />
-                </div>
-              </details>
+        <ul className="mt-4 divide-y divide-zinc-200 border-y border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          {practices.map((p) => (
+            <li key={p.id} className="py-5">
+              <h3 className="mb-2 font-semibold text-zinc-900 dark:text-zinc-50">{p.name}</h3>
+              <PracticeBody practice={p} />
             </li>
-          );
-        })}
-      </ul>
-    </aside>
+          ))}
+        </ul>
+      </details>
+    </section>
   );
 }

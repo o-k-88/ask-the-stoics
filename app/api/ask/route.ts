@@ -8,6 +8,10 @@ import {
 } from "../../config";
 import { getPhilosopher } from "../../philosophers";
 
+// The page shows answers as plain text, so ask for prose without Markdown symbols.
+const PLAIN_TEXT_STYLE =
+  "Write in plain prose, as in a letter. Do not use Markdown or any formatting: no asterisks, bold, italics, headings, bullet points, or numbered lists. Separate ideas with short paragraphs.";
+
 const MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
 
 // Simple in-memory rate limit: RATE_LIMIT requests per RATE_WINDOW_MS per IP.
@@ -123,7 +127,7 @@ export async function POST(req: Request): Promise<Response> {
     const stream = await ai.models.generateContentStream({
       model,
       contents,
-      config: { systemInstruction: philosopher.systemInstruction },
+      config: { systemInstruction: `${philosopher.systemInstruction} ${PLAIN_TEXT_STYLE}` },
     });
     return { model, stream, first: await stream.next() };
   }

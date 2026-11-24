@@ -20,7 +20,6 @@ const STARTER_QUESTIONS = [
   "How do I handle criticism?",
   "I'm anxious about my future. What should I do?",
   "How can I stop procrastinating?",
-  "How do I deal with a difficult coworker?",
 ];
 
 type SavedChat = { philosopherId: string; conversations: Conversations };
@@ -61,34 +60,11 @@ function saveChat(chat: SavedChat) {
   }
 }
 
-const accentClasses: Record<
-  string,
-  { ring: string; selected: string; unselected: string; quote: string; button: string }
-> = {
-  amber: {
-    ring: "focus:border-amber-600 focus:ring-amber-600/30",
-    selected: "border-amber-700 bg-amber-700 text-white",
-    unselected:
-      "border-zinc-300 bg-white text-zinc-700 hover:border-amber-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
-    quote: "border-amber-700",
-    button: "bg-amber-700 hover:bg-amber-800",
-  },
-  emerald: {
-    ring: "focus:border-emerald-600 focus:ring-emerald-600/30",
-    selected: "border-emerald-700 bg-emerald-700 text-white",
-    unselected:
-      "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
-    quote: "border-emerald-700",
-    button: "bg-emerald-700 hover:bg-emerald-800",
-  },
-  sky: {
-    ring: "focus:border-sky-600 focus:ring-sky-600/30",
-    selected: "border-sky-700 bg-sky-700 text-white",
-    unselected:
-      "border-zinc-300 bg-white text-zinc-700 hover:border-sky-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
-    quote: "border-sky-700",
-    button: "bg-sky-700 hover:bg-sky-800",
-  },
+// Each philosopher's color appears only as the thin line beside their answers.
+const answerBorder: Record<string, string> = {
+  amber: "border-amber-600",
+  emerald: "border-emerald-600",
+  sky: "border-sky-600",
 };
 
 export default function AskForm() {
@@ -102,7 +78,6 @@ export default function AskForm() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const philosopher = philosophers.find((p) => p.id === philosopherId) ?? defaultPhilosopher;
-  const accent = accentClasses[philosopher.accent];
   const messages = conversations[philosopherId] ?? [];
 
   // Restore the saved chat after the first render (browser storage isn't available on the server).
@@ -217,10 +192,13 @@ export default function AskForm() {
 
   return (
     <div ref={containerRef} className="w-full scroll-mt-8">
-      <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Choose a philosopher">
+      <div
+        role="group"
+        aria-label="Choose a philosopher"
+        className="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-200/60 p-1 dark:bg-zinc-800/60"
+      >
         {philosophers.map((p) => {
           const isSelected = p.id === philosopherId;
-          const classes = accentClasses[p.accent];
           return (
             <button
               key={p.id}
@@ -231,68 +209,42 @@ export default function AskForm() {
                 setPhilosopherId(p.id);
                 setError("");
               }}
-              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                isSelected ? classes.selected : classes.unselected
+              className={`rounded-xl px-2 py-2.5 text-center transition disabled:cursor-not-allowed ${
+                isSelected
+                  ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-50"
+                  : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
               }`}
             >
-              {p.name}
+              <span className="block text-sm font-medium sm:text-base">{p.name}</span>
+              <span className="block text-xs text-zinc-500 dark:text-zinc-500">{p.role}</span>
             </button>
           );
         })}
-        {messages.length > 0 && (
-          <button
-            type="button"
-            onClick={startOver}
-            disabled={pending}
-            className="ml-auto text-sm text-zinc-500 underline-offset-4 hover:underline disabled:opacity-60 dark:text-zinc-400"
-          >
-            New conversation
-          </button>
-        )}
       </div>
 
       {messages.length > 0 && (
-        <div className="mb-6 flex flex-col gap-4" aria-live="polite">
+        <div className="mt-8 flex flex-col gap-6" aria-live="polite">
           {messages.map((m, i) =>
             m.role === "user" ? (
               <p
                 key={i}
-                className="self-end max-w-[85%] whitespace-pre-wrap rounded-xl bg-zinc-200 px-4 py-2.5 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                className="max-w-[85%] self-end whitespace-pre-wrap rounded-2xl bg-zinc-200/70 px-4 py-2.5 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
               >
                 {m.text}
               </p>
             ) : (
-              <blockquote
+              <div
                 key={i}
-                className={`whitespace-pre-wrap rounded-xl border-l-4 bg-zinc-50 p-5 italic leading-relaxed text-zinc-800 shadow-sm dark:bg-zinc-900 dark:text-zinc-200 ${accent.quote}`}
+                className={`border-l-2 pl-5 ${answerBorder[philosopher.accent]}`}
               >
-                {m.text || <span className="text-zinc-400">Contemplating...</span>}
-                <footer className="mt-3 text-sm font-medium not-italic text-zinc-500 dark:text-zinc-400">
-                  — {philosopher.name}
-                </footer>
-              </blockquote>
+                <p className="whitespace-pre-wrap text-[17px] leading-8 text-zinc-800 dark:text-zinc-200">
+                  {m.text || <span className="text-zinc-400">Contemplating…</span>}
+                </p>
+                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">— {philosopher.name}</p>
+              </div>
             ),
           )}
           <div ref={bottomRef} />
-        </div>
-      )}
-
-      {loaded && messages.length === 0 && (
-        <div className="mb-4">
-          <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">Try asking:</p>
-          <div className="flex flex-wrap gap-2">
-            {STARTER_QUESTIONS.map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => ask(q)}
-                disabled={pending}
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-left text-sm text-zinc-700 transition hover:border-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -301,7 +253,7 @@ export default function AskForm() {
           e.preventDefault();
           ask();
         }}
-        className="flex flex-col gap-4"
+        className="mt-6 rounded-2xl border border-zinc-300 bg-white shadow-sm transition focus-within:border-amber-600 focus-within:ring-2 focus-within:ring-amber-600/20 dark:border-zinc-700 dark:bg-zinc-900"
       >
         <textarea
           name="question"
@@ -309,11 +261,11 @@ export default function AskForm() {
           onChange={(e) => setQuestion(e.target.value)}
           placeholder={
             messages.length > 0
-              ? `Ask ${philosopher.name} a follow-up...`
-              : `Ask ${philosopher.name} a question...`
+              ? `Ask ${philosopher.name} a follow-up…`
+              : `Ask ${philosopher.name} a question…`
           }
           aria-label={`Your question for ${philosopher.name}`}
-          rows={4}
+          rows={3}
           required
           maxLength={MAX_QUESTION_LENGTH}
           onKeyDown={(e) => {
@@ -322,21 +274,55 @@ export default function AskForm() {
               ask();
             }
           }}
-          className={`w-full resize-none rounded-xl border border-zinc-300 bg-white p-4 text-base shadow-sm outline-none transition placeholder:text-zinc-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500 ${accent.ring}`}
+          className="block w-full resize-none rounded-t-2xl bg-transparent px-4 pt-4 text-base text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
         />
-        {error && (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-            {error}
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={pending || !question.trim()}
-          className={`self-end rounded-xl px-6 py-2.5 font-medium text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${accent.button}`}
-        >
-          {pending ? "Contemplating..." : "Ask"}
-        </button>
+        <div className="flex items-center justify-between gap-3 px-3 pb-3">
+          {messages.length > 0 ? (
+            <button
+              type="button"
+              onClick={startOver}
+              disabled={pending}
+              className="px-1 text-sm text-zinc-500 underline-offset-4 hover:text-zinc-800 hover:underline disabled:opacity-60 dark:text-zinc-400 dark:hover:text-zinc-200"
+            >
+              New conversation
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="submit"
+            disabled={pending || !question.trim()}
+            className="rounded-xl bg-amber-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending ? "Contemplating…" : "Ask"}
+          </button>
+        </div>
       </form>
+
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
+
+      {loaded && messages.length === 0 && (
+        <p className="mt-4 text-sm leading-7 text-zinc-500 dark:text-zinc-400">
+          <span className="mr-1">Try:</span>
+          {STARTER_QUESTIONS.map((q, i) => (
+            <span key={q}>
+              {i > 0 && <span aria-hidden="true" className="mx-2 text-zinc-300 dark:text-zinc-600">·</span>}
+              <button
+                type="button"
+                onClick={() => ask(q)}
+                disabled={pending}
+                className="text-zinc-700 underline decoration-zinc-300 underline-offset-4 hover:text-amber-800 hover:decoration-amber-600 disabled:opacity-60 dark:text-zinc-300 dark:decoration-zinc-600 dark:hover:text-amber-400"
+              >
+                {q}
+              </button>
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   );
 }

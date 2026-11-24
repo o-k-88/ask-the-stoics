@@ -15,7 +15,7 @@ export default function AskAboutButton({
     <button
       type="button"
       onClick={() => askPhilosopher(philosopherId, question)}
-      className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-zinc-700 underline-offset-4 hover:underline dark:text-zinc-300"
+      className="inline-flex items-center gap-1 font-medium text-amber-800 underline-offset-4 hover:underline dark:text-amber-400"
     >
       Ask {philosopherName} about this
       <span aria-hidden="true">→</span>
