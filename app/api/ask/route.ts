@@ -3,6 +3,7 @@ import {
   MAX_ANSWER_LENGTH,
   MAX_HISTORY_MESSAGES,
   MAX_QUESTION_LENGTH,
+  RESET_ANSWER,
   type ChatMessage,
 } from "../../config";
 import { getPhilosopher } from "../../philosophers";
@@ -110,53 +111,74 @@ export async function POST(req: Request): Promise<Response> {
   const philosopher = getPhilosopher(typeof philosopherId === "string" ? philosopherId : "");
   const contents = messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
 
-  // Start the stream, falling back to the next model if one is overloaded.
-  // We wait for the first chunk so an overload error can still trigger the fallback.
-  let stream: AsyncGenerator<GenerateContentResponse> | undefined;
-  let first: IteratorResult<GenerateContentResponse> | undefined;
-  let lastError: unknown;
+  type OpenStream = {
+    model: string;
+    stream: AsyncGenerator<GenerateContentResponse>;
+    first: IteratorResult<GenerateContentResponse>;
+  };
 
-  for (const model of MODELS) {
-    try {
-      stream = await ai.models.generateContentStream({
-        model,
-        contents,
-        config: { systemInstruction: philosopher.systemInstruction },
-      });
-      first = await stream.next();
-      break;
-    } catch (error) {
-      lastError = error;
-      stream = undefined;
-      console.error(`Error communicating with Gemini (${model}):`, error);
-      if (!isOverloaded(error)) break;
-    }
+  // Opens a stream and waits for the first chunk, so an overload error shows up here
+  // (and can trigger the fallback) instead of after the response has started.
+  async function openStream(model: string): Promise<OpenStream> {
+    const stream = await ai.models.generateContentStream({
+      model,
+      contents,
+      config: { systemInstruction: philosopher.systemInstruction },
+    });
+    return { model, stream, first: await stream.next() };
   }
 
-  if (!stream || !first) {
-    return isOverloaded(lastError)
+  /** Tries each remaining model in order. Returns the first that starts, or the last error. */
+  async function openWithFallback(models: string[]): Promise<OpenStream | { error: unknown }> {
+    let lastError: unknown;
+    for (const model of models) {
+      try {
+        return await openStream(model);
+      } catch (error) {
+        lastError = error;
+        console.error(`Error communicating with Gemini (${model}):`, error);
+        if (!isOverloaded(error)) break;
+      }
+    }
+    return { error: lastError };
+  }
+
+  const opened = await openWithFallback(MODELS);
+  if ("error" in opened) {
+    return isOverloaded(opened.error)
       ? errorResponse("The oracle is busy with many seekers right now. Please try again in a moment.", 503)
       : errorResponse("Something went wrong. Try again.", 500);
   }
 
   const encoder = new TextEncoder();
-  const activeStream = stream;
-  const firstChunk = first;
 
   const responseStream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let current = opened;
       try {
-        if (!firstChunk.done && firstChunk.value.text) {
-          controller.enqueue(encoder.encode(firstChunk.value.text));
-        }
-        if (!firstChunk.done) {
-          for await (const chunk of activeStream) {
-            if (chunk.text) controller.enqueue(encoder.encode(chunk.text));
+        while (true) {
+          try {
+            if (!current.first.done) {
+              if (current.first.value.text) controller.enqueue(encoder.encode(current.first.value.text));
+              for await (const chunk of current.stream) {
+                if (chunk.text) controller.enqueue(encoder.encode(chunk.text));
+              }
+            }
+            return;
+          } catch (error) {
+            console.error(`Gemini stream interrupted (${current.model}):`, error);
+            // If the model got overloaded mid-answer, start over on the next model.
+            const remaining = MODELS.slice(MODELS.indexOf(current.model) + 1);
+            const next = isOverloaded(error) ? await openWithFallback(remaining) : null;
+            if (!next || "error" in next) {
+              controller.enqueue(encoder.encode("\n\n[The answer was cut short. Please try again.]"));
+              return;
+            }
+            // Tell the browser to throw away the partial answer.
+            controller.enqueue(encoder.encode(RESET_ANSWER));
+            current = next;
           }
         }
-      } catch (error) {
-        console.error("Gemini stream interrupted:", error);
-        controller.enqueue(encoder.encode("\n\n[The answer was cut short. Please try again.]"));
       } finally {
         controller.close();
       }

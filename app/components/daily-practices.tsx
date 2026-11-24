@@ -1,3 +1,4 @@
+import AskAboutButton from "./ask-about-button";
 import { getPhilosopher } from "../philosophers";
 import { practices } from "../practices";
 
@@ -79,6 +80,11 @@ export default function DailyPractices() {
                       <cite className="text-zinc-500 not-italic">{p.source}</cite>
                     )}
                   </p>
+                  <AskAboutButton
+                    philosopherId={philosopher.id}
+                    philosopherName={philosopher.name}
+                    question={p.question}
+                  />
                 </div>
               </details>
             </li>

@@ -9,11 +9,14 @@ export type Practice = {
   /** Philosopher id from philosophers.ts, used for the colored tag. */
   philosopherId: string;
   source?: string;
+  /** Question sent to the chat by the "Ask about this" button. */
+  question: string;
 };
 
 export const practices: Practice[] = [
   {
     id: "dichotomy-of-control",
+    question: "How can I practice the dichotomy of control in my everyday life?",
     name: "The dichotomy of control",
     intro: "Separate things into two categories:",
     items: [
@@ -26,6 +29,7 @@ export const practices: Practice[] = [
   },
   {
     id: "voluntary-discomfort",
+    question: "Why should I choose discomfort on purpose, and how do I start?",
     name: "Voluntary discomfort",
     intro: "Occasionally choose something uncomfortable:",
     items: [
@@ -40,6 +44,7 @@ export const practices: Practice[] = [
   },
   {
     id: "negative-visualization",
+    question: "How do I practice negative visualization without becoming anxious or pessimistic?",
     name: "Negative visualization (Premeditatio Malorum)",
     intro:
       "Briefly imagine losing something you appreciate: your job, financial security, relationships, or opportunities.",
@@ -50,6 +55,7 @@ export const practices: Practice[] = [
   },
   {
     id: "memento-mori",
+    question: "How can remembering death help me live better today?",
     name: "Memento Mori (Remember Death)",
     intro: "Remind yourself that your time is limited. Ask:",
     items: [
@@ -63,6 +69,7 @@ export const practices: Practice[] = [
   },
   {
     id: "practicing-virtue",
+    question: "How can I practice wisdom, courage, justice, and temperance in my daily decisions?",
     name: "Practicing virtue",
     intro: "Stoicism identifies four central virtues:",
     items: [

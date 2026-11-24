@@ -1,10 +1,65 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { MAX_HISTORY_MESSAGES, MAX_QUESTION_LENGTH, type ChatMessage } from "../config";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { ASK_EVENT, type AskEventDetail } from "../ask-event";
+import {
+  MAX_HISTORY_MESSAGES,
+  MAX_QUESTION_LENGTH,
+  RESET_ANSWER,
+  type ChatMessage,
+} from "../config";
 import { defaultPhilosopher, philosophers } from "../philosophers";
 
 type Conversations = Record<string, ChatMessage[]>;
+
+const STORAGE_KEY = "ask-the-stoics:chat";
+// Most messages kept per philosopher in browser storage.
+const MAX_STORED_MESSAGES = 50;
+
+const STARTER_QUESTIONS = [
+  "How do I handle criticism?",
+  "I'm anxious about my future. What should I do?",
+  "How can I stop procrastinating?",
+  "How do I deal with a difficult coworker?",
+];
+
+type SavedChat = { philosopherId: string; conversations: Conversations };
+
+function loadChat(): SavedChat | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as Partial<SavedChat>;
+    const conversations: Conversations = {};
+    for (const p of philosophers) {
+      const msgs = saved.conversations?.[p.id];
+      if (!Array.isArray(msgs)) continue;
+      conversations[p.id] = msgs.filter(
+        (m): m is ChatMessage =>
+          (m?.role === "user" || m?.role === "model") && typeof m.text === "string" && m.text !== "",
+      );
+    }
+    const philosopherId = philosophers.some((p) => p.id === saved.philosopherId)
+      ? saved.philosopherId!
+      : defaultPhilosopher.id;
+    return { philosopherId, conversations };
+  } catch {
+    return null;
+  }
+}
+
+function saveChat(chat: SavedChat) {
+  try {
+    const trimmed: Conversations = {};
+    for (const [id, msgs] of Object.entries(chat.conversations)) {
+      // Skip an empty answer that is still streaming.
+      trimmed[id] = msgs.filter((m) => m.text !== "").slice(-MAX_STORED_MESSAGES);
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...chat, conversations: trimmed }));
+  } catch {
+    // Storage can be full or blocked (e.g. private browsing); the chat still works without it.
+  }
+}
 
 const accentClasses: Record<
   string,
@@ -42,26 +97,59 @@ export default function AskForm() {
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const philosopher = philosophers.find((p) => p.id === philosopherId) ?? defaultPhilosopher;
   const accent = accentClasses[philosopher.accent];
   const messages = conversations[philosopherId] ?? [];
 
+  // Restore the saved chat after the first render (browser storage isn't available on the server).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [conversations, philosopherId]);
+    const saved = loadChat();
+    if (saved) {
+      // Reading during render would make the server and browser HTML differ (hydration error),
+      // so the saved chat is applied once, right after mounting.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setConversations(saved.conversations);
+      setPhilosopherId(saved.philosopherId);
+    }
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (loaded) saveChat({ philosopherId, conversations });
+  }, [loaded, philosopherId, conversations]);
+
+  // Follow the answer while it streams in.
+  useEffect(() => {
+    if (pending) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [conversations, pending]);
+
+  // Questions sent from elsewhere on the page, like "Ask about this" on a practice.
+  const onAskEvent = useEffectEvent((detail: AskEventDetail) => {
+    if (pending) return;
+    setPhilosopherId(detail.philosopherId);
+    containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    ask(detail.question, detail.philosopherId);
+  });
+
+  useEffect(() => {
+    const listener = (e: Event) => onAskEvent((e as CustomEvent<AskEventDetail>).detail);
+    window.addEventListener(ASK_EVENT, listener);
+    return () => window.removeEventListener(ASK_EVENT, listener);
+  }, []);
 
   function updateConversation(id: string, update: (msgs: ChatMessage[]) => ChatMessage[]) {
     setConversations((prev) => ({ ...prev, [id]: update(prev[id] ?? []) }));
   }
 
-  async function ask() {
-    const text = question.trim();
+  async function ask(questionText: string = question, id: string = philosopherId) {
+    const text = questionText.trim();
     if (!text || pending) return;
 
-    const id = philosopherId;
-    const history: ChatMessage[] = [...messages, { role: "user", text }];
+    const history: ChatMessage[] = [...(conversations[id] ?? []), { role: "user", text }];
 
     setPending(true);
     setError("");
@@ -73,7 +161,10 @@ export default function AskForm() {
       updateConversation(id, (msgs) => {
         const last = msgs.at(-1);
         if (!last || last.role !== "model") return msgs;
-        return [...msgs.slice(0, -1), { ...last, text: last.text + chunk }];
+        // A reset marker means the server restarted the answer; keep only what follows it.
+        const resetAt = chunk.lastIndexOf(RESET_ANSWER);
+        const text = resetAt === -1 ? last.text + chunk : chunk.slice(resetAt + 1);
+        return [...msgs.slice(0, -1), { ...last, text }];
       });
 
     const failed = (message: string) => {
@@ -107,7 +198,7 @@ export default function AskForm() {
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         if (chunk) {
-          received = true;
+          received = !chunk.endsWith(RESET_ANSWER);
           appendToAnswer(chunk);
         }
       }
@@ -125,7 +216,7 @@ export default function AskForm() {
   }
 
   return (
-    <div className="w-full">
+    <div ref={containerRef} className="w-full scroll-mt-8">
       <div className="mb-4 flex flex-wrap items-center gap-2" role="group" aria-label="Choose a philosopher">
         {philosophers.map((p) => {
           const isSelected = p.id === philosopherId;
@@ -183,6 +274,25 @@ export default function AskForm() {
             ),
           )}
           <div ref={bottomRef} />
+        </div>
+      )}
+
+      {loaded && messages.length === 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">Try asking:</p>
+          <div className="flex flex-wrap gap-2">
+            {STARTER_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => ask(q)}
+                disabled={pending}
+                className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-left text-sm text-zinc-700 transition hover:border-zinc-400 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
