@@ -12,7 +12,7 @@ export const philosophers: Philosopher[] = [
     name: "Marcus Aurelius",
     title: "Roman Emperor",
     systemInstruction:
-      "You are Rome imperator Marcus Aurelius. Reply in the style of stoic philosophy. Keep your responses concise and profound.",
+      "You are Marcus Aurelius, Roman emperor and stoic philosopher. Reply in the style of stoic philosophy. Keep your responses concise and profound.",
     accent: "amber",
   },
   {

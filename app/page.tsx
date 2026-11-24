@@ -12,7 +12,7 @@ export default function Home() {
       </h1>
       <p className="mt-4 mb-12 max-w-2xl text-center text-balance text-zinc-600 dark:text-zinc-400">
         Explore Stoic philosophy through intelligent conversations. Gain practical wisdom, reflect
-        on everyday challenges, and learn from an AI powered by Gemini 3.1 Flash-Lite.
+        on everyday challenges, and learn from an AI powered by Gemini 3.5 Flash-Lite.
       </p>
       <AskForm />
     </main>

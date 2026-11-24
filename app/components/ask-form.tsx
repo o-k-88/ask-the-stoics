@@ -2,11 +2,16 @@
 
 import { useActionState, useState } from "react";
 import { generateText } from "../actions";
+import { MAX_QUESTION_LENGTH } from "../config";
 import { defaultPhilosopher, philosophers } from "../philosophers";
 
-type ReplyState = { text: string; philosopherName: string };
+type ReplyState = { text: string; philosopherName: string; accent: string };
 
-const initialState: ReplyState = { text: "", philosopherName: defaultPhilosopher.name };
+const initialState: ReplyState = {
+  text: "",
+  philosopherName: defaultPhilosopher.name,
+  accent: defaultPhilosopher.accent,
+};
 
 const accentClasses: Record<
   string,
@@ -47,10 +52,15 @@ export default function AskForm() {
     const text = await generateText(resolvedId, typeof question === "string" ? question : "");
     const submittedPhilosopher =
       philosophers.find((p) => p.id === resolvedId) ?? defaultPhilosopher;
-    return { text, philosopherName: submittedPhilosopher.name };
+    return {
+      text,
+      philosopherName: submittedPhilosopher.name,
+      accent: submittedPhilosopher.accent,
+    };
   }
 
   const [reply, formAction, pending] = useActionState(askAction, initialState);
+  const replyAccent = accentClasses[reply.accent];
 
   return (
     <div className="w-full max-w-xl">
@@ -80,10 +90,11 @@ export default function AskForm() {
           placeholder={`Ask ${philosopher.name} a question...`}
           rows={4}
           required
+          maxLength={MAX_QUESTION_LENGTH}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              e.currentTarget.form?.requestSubmit();
+              if (!pending) e.currentTarget.form?.requestSubmit();
             }
           }}
           className={`w-full resize-none rounded-xl border border-zinc-300 bg-white p-4 text-base shadow-sm outline-none transition placeholder:text-zinc-400 focus:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500 ${accent.ring}`}
@@ -99,7 +110,7 @@ export default function AskForm() {
 
       {reply.text && (
         <blockquote
-          className={`mt-8 whitespace-pre-wrap rounded-xl border-l-4 bg-zinc-50 p-5 italic leading-relaxed text-zinc-800 shadow-sm dark:bg-zinc-900 dark:text-zinc-200 ${accent.quote}`}
+          className={`mt-8 whitespace-pre-wrap rounded-xl border-l-4 bg-zinc-50 p-5 italic leading-relaxed text-zinc-800 shadow-sm dark:bg-zinc-900 dark:text-zinc-200 ${replyAccent.quote}`}
         >
           {reply.text}
           <footer className="mt-3 text-sm font-medium not-italic text-zinc-500 dark:text-zinc-400">
